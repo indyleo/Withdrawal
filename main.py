@@ -1,18 +1,26 @@
 #!/usr/bin/env python3
 import gi
+
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk, Gdk
+import ast
+import logging
 import os
 import shutil
 import subprocess
 from pathlib import Path
-import ast
-import logging
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+from gi.repository import Gdk, Gtk
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s"
+)
 log = logging.getLogger("MultiSober")
 
-INSTANCES_DIR = Path.home() / "MultiSober" / "Instances"
+INSTANCES_DIR = (
+    Path(os.environ.get("XDG_DATA_HOME", str(Path.home() / ".local" / "share")))
+    / "Withdrawal"
+    / "Instances"
+)
 INSTANCES_LIST = INSTANCES_DIR / "Instances.list"
 APP_ID = "org.vinegarhq.Sober"
 
@@ -20,8 +28,10 @@ APP_ID = "org.vinegarhq.Sober"
 SOBER_CONFIG_DIR = Path.home() / ".var" / "app" / APP_ID / "config" / "sober"
 SOBER_CONFIG_FILE = SOBER_CONFIG_DIR / "config.json"
 
+
 class InstanceAlreadyExist(Exception):
     pass
+
 
 class MultiSoberManager:
     def __init__(self):
@@ -79,24 +89,25 @@ class MultiSoberManager:
         envpath = INSTANCES_DIR / name
         if not envpath.exists():
             envpath.mkdir(parents=True)
-        
+
         log.info(f"Launching instance '{name}'")
-        
+
         # Detach the child process using preexec_fn=os.setsid
         # This makes the child a session leader, so it won't be terminated when the parent exits.
         try:
             subprocess.Popen(
                 ["env", f"HOME={envpath}", "flatpak", "run", APP_ID],
-                preexec_fn=os.setsid, # This is the key for detaching on Unix-like systems
-                stdout=subprocess.DEVNULL, # Redirect stdout to /dev/null
-                stderr=subprocess.DEVNULL, # Redirect stderr to /dev/null
-                stdin=subprocess.DEVNULL    # Redirect stdin to /dev/null
+                preexec_fn=os.setsid,  # This is the key for detaching on Unix-like systems
+                stdout=subprocess.DEVNULL,  # Redirect stdout to /dev/null
+                stderr=subprocess.DEVNULL,  # Redirect stderr to /dev/null
+                stdin=subprocess.DEVNULL,  # Redirect stdin to /dev/null
             )
             log.info(f"Instance '{name}' launched successfully and detached.")
         except Exception as e:
             log.error(f"Failed to launch instance '{name}': {e}")
             # You might want to show an error dialog here in the GUI
             # For simplicity, I'm just logging it for now.
+
 
 class InstanceRow(Gtk.ListBoxRow):
     def __init__(self, name, manager, refresh_cb, run_cb):
@@ -110,7 +121,14 @@ class InstanceRow(Gtk.ListBoxRow):
         self.set_child(self._build_row())
 
     def _build_row(self):
-        self.main_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10, margin_top=6, margin_bottom=6, margin_start=6, margin_end=6)
+        self.main_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=10,
+            margin_top=6,
+            margin_bottom=6,
+            margin_start=6,
+            margin_end=6,
+        )
         self.label = Gtk.Label(label=self.name, xalign=0)
         self.label.set_hexpand(True)
 
@@ -134,7 +152,9 @@ class InstanceRow(Gtk.ListBoxRow):
 
     def on_import_clicked(self, button):
         source_file = SOBER_CONFIG_FILE
-        destination_dir = INSTANCES_DIR / self.name / ".var" / "app" / APP_ID / "config" / "sober"
+        destination_dir = (
+            INSTANCES_DIR / self.name / ".var" / "app" / APP_ID / "config" / "sober"
+        )
         destination_file = destination_dir / "config.json"
 
         if not source_file.exists():
@@ -150,13 +170,17 @@ class InstanceRow(Gtk.ListBoxRow):
                 modal=True,
                 message_type=Gtk.MessageType.INFO,
                 buttons=Gtk.ButtonsType.CLOSE,
-                text=f"Settings imported successfully for '{self.name}'."
+                text=f"Settings imported successfully for '{self.name}'.",
             )
             dialog.connect("response", lambda d, r: d.destroy())
             dialog.present()
-            log.info(f"Imported settings for instance '{self.name}' from '{source_file}' to '{destination_file}'")
+            log.info(
+                f"Imported settings for instance '{self.name}' from '{source_file}' to '{destination_file}'"
+            )
         except FileNotFoundError as e:
-            self.show_error(f"Error importing settings: {e}. Ensure the instance directory exists.")
+            self.show_error(
+                f"Error importing settings: {e}. Ensure the instance directory exists."
+            )
             log.error(f"Error during import for '{self.name}': {e}")
         except Exception as e:
             self.show_error(f"An unexpected error occurred during import: {e}")
@@ -208,9 +232,11 @@ class InstanceRow(Gtk.ListBoxRow):
             modal=True,
             message_type=Gtk.MessageType.QUESTION,
             buttons=Gtk.ButtonsType.OK_CANCEL,
-            text=f"Delete instance '{self.name}'?"
+            text=f"Delete instance '{self.name}'?",
         )
-        dialog.connect("response", lambda d, response: self._handle_delete_response(d, response))
+        dialog.connect(
+            "response", lambda d, response: self._handle_delete_response(d, response)
+        )
         dialog.present()
 
     def _handle_delete_response(self, dialog, response):
@@ -218,7 +244,6 @@ class InstanceRow(Gtk.ListBoxRow):
             self.manager.delete_instance(self.name)
             self.refresh_cb()
         dialog.destroy()
-
 
     def on_run_clicked(self, button):
         self.run_cb(self.name)
@@ -229,7 +254,7 @@ class InstanceRow(Gtk.ListBoxRow):
             modal=True,
             message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.CLOSE,
-            text=message
+            text=message,
         )
         dialog.connect("response", lambda d, r: d.destroy())
         dialog.present()
@@ -241,7 +266,14 @@ class MultiSoberWindow(Gtk.ApplicationWindow):
         self.set_default_size(600, 400)
         self.manager = MultiSoberManager()
 
-        self.vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10, margin_top=10, margin_bottom=10, margin_start=10, margin_end=10)
+        self.vbox = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=10,
+            margin_top=10,
+            margin_bottom=10,
+            margin_start=10,
+            margin_end=10,
+        )
         self.set_child(self.vbox)
 
         self.scrolled_window = Gtk.ScrolledWindow()
@@ -270,7 +302,9 @@ class MultiSoberWindow(Gtk.ApplicationWindow):
 
         instances = self.manager.list_instances()
         for name in instances:
-            row = InstanceRow(name, self.manager, self.refresh_instances, self.run_instance)
+            row = InstanceRow(
+                name, self.manager, self.refresh_instances, self.run_instance
+            )
             self.list_box.append(row)
 
     def on_add_instance_clicked(self, button):
@@ -316,6 +350,7 @@ class MultiSoberWindow(Gtk.ApplicationWindow):
         dialog.connect("response", lambda d, r: d.destroy())
         dialog.present()
 
+
 class MultiSoberApp(Gtk.Application):
     def __init__(self):
         super().__init__(application_id="org.example.MultiSober")
@@ -324,9 +359,11 @@ class MultiSoberApp(Gtk.Application):
         win = MultiSoberWindow(self)
         win.present()
 
+
 def main():
     app = MultiSoberApp()
     return app.run()
+
 
 if __name__ == "__main__":
     main()
