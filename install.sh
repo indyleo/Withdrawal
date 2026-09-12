@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-WITHDRAWAL_DIR="$HOME/Withdrawal"
+WITHDRAWAL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/Withdrawal"
 DESKTOP_ENTRY_DIR="$HOME/.local/share/applications"
-ICON_URL="https://raw.githubusercontent.com/dim-ghub/Withdrawal/refs/heads/main/Withdrawal.svg"
-PYTHON_SCRIPT_URL="https://raw.githubusercontent.com/dim-ghub/Withdrawal/refs/heads/main/main.py"
+ICON_URL="https://raw.githubusercontent.com/indyleo/Withdrawal/refs/heads/main/Withdrawal.svg"
+PYTHON_SCRIPT_URL="https://raw.githubusercontent.com/indyleo/Withdrawal/refs/heads/main/main.py"
 ICON_PATH="$WITHDRAWAL_DIR/Withdrawal.svg"
 PYTHON_SCRIPT_PATH="$WITHDRAWAL_DIR/main.py"
 DESKTOP_FILE_PATH="$DESKTOP_ENTRY_DIR/Withdrawal.desktop"
@@ -37,9 +37,10 @@ Type=Application
 Categories=Utility;
 EOF
 
+echo "Creating symlink to $PYTHON_SCRIPT_PATH in $HOME/.local/bin"
+ln -sf "$PYTHON_SCRIPT_PATH" "$HOME/.local/bin/withdrawal" || { echo "Failed to create symlink. Exiting."; exit 1; }
+
 echo "Making desktop file executable: $DESKTOP_FILE_PATH"
 chmod +x "$DESKTOP_FILE_PATH" || { echo "Failed to make desktop file executable. Exiting."; exit 1; }
 
 echo "Withdrawal installation complete!"
-echo "You might need to log out and log back in, or refresh your desktop environment for the application to appear in your menu."
-echo "You can typically find it by searching for 'Withdrawal' in your application launcher."
